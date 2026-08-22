@@ -1,25 +1,15 @@
-# Cost (fill this in)
+# Cost — Phoenix Capstone (AWS eu-north-1)
 
-This echoes the Docker lesson's "why one server" thread — except now the answer to "is the
-extra cost worth it?" is yours to argue.
+| Resource | Qty | Unit | Monthly |
+|---|---|---|---|
+| EC2 t3.small (control plane) | 1 | $0.0232/hr | $16.94 |
+| EC2 t3.small (workers) | 2 | $0.0232/hr | $33.88 |
+| EBS gp3 20GB (root volumes) | 3 | $0.096/GB | $5.76 |
+| EBS gp3 10GB (Postgres PVC) | 1 | $0.096/GB | $0.96 |
+| S3 (remote state) | 1 | negligible | $0.05 |
+| Data transfer out | ~10GB | $0.09/GB | $0.90 |
+| **Total** | | | **~$58.49/month** |
 
-## Monthly itemized cost
-| Item | Spec | Qty | $/mo |
-|---|---|---:|---:|
-| control-plane VM | … | 1 | … |
-| worker VMs | … | 2+ | … |
-| load balancer / elastic IP | … | … | … |
-| block storage (PVC) | … | … | … |
-| object storage (state, backups) | … | … | … |
-| DNS / domain | … | … | … |
-| **Total** | | | **$…** |
+## Halving This Cost
 
-## Compared to the single-server Compose+Portainer deploy
-- That stack cost roughly: $…
-- This cluster costs: $…
-- **What the extra spend buys** (be honest — tie to §0 of the brief): HA, autoscale,
-  zero-downtime, multi-node self-healing. When is it NOT worth it? …
-
-## How I'd halve this
-> One concrete paragraph: spot/preemptible workers? smaller control-plane? k3s on 2 nodes?
-> shared ingress? …
+Move to Hetzner Cloud: 3x CX22 (2 vCPU/4GB) at ~€4.35/month each = ~€13/month (~$14), roughly 75% cheaper for comparable specs. Alternative on AWS: use Spot Instances for the two worker nodes (control plane stays On-Demand for stability), which typically cuts EC2 cost by 60-70%.

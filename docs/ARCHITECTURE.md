@@ -1,47 +1,37 @@
-# Architecture (fill this in)
+# Architecture — Phoenix Capstone
 
-## 1. Topology diagram
-> Draw it (ASCII, Excalidraw, draw.io — anything). Show: your nodes, where each TaskApp
-> tier runs, the ingress controller, and the request path.
+## Node Topology
+                    Internet
+                        |
+                DuckDNS (sandietaskapp.duckdns.org)
+                        |
+                AWS eu-north-1 / VPC 10.0.0.0/16
+                        |
+    +-------------------+-------------------+
+    |                   |                   |
 
-```
-[ replace with your diagram ]
 
-  Internet ──DNS──▶ taskapp.<you>.dev / api.<you>.dev
-        │
-        ▼
-  ingress controller (node: ____)  ──TLS terminated by cert-manager──┐
-        │                                                            │
-        ▼                                                            ▼
-  frontend Service ──▶ frontend Pods (nodes: __, __)        backend Service ──▶ backend Pods (nodes: __, __)
-                              │  /api proxy                              │
-                              └────────────────────────────────────────▶│
-                                                                         ▼
-                                                          postgres Service ──▶ postgres-0 (PVC on node __)
-```
+## Request Flow
 
-## 2. Node & network
-- Nodes (role, size, AZ/region): …
-- CIDR / subnet choices and why: …
-- Firewall: what's open to the world, what's internal, and why `6443` is closed: …
+## Single-Server Assumptions This Design Fixes
 
-## 3. Request flow (one paragraph)
-> DNS → ingress → TLS → frontend → /api → backend → Postgres. Be specific about names/ports.
-
-## 4. The single-server assumptions you fixed  ← graders look here
-> For each, name the assumption that was safe on one box but breaks on a cluster, and the
-> K8s mechanism you used. Minimum: migrations, persistent storage, traffic routing,
-> self-healing, zero-downtime deploys, secrets.
-
-| Single-server assumption | Why it breaks at scale | How you fixed it |
+| Requirement | Single-server problem | Kubernetes fix |
 |---|---|---|
-| migrate-on-boot in the entrypoint | 2+ replicas race on `alembic upgrade head` | … |
-| named volume on the host | Pods reschedule across nodes | … |
-| `ports:` published on the host | many Pods, many nodes, one front door needed | … |
-| … | … | … |
+| StatefulSet + PVC | Postgres data lost on restart/redeploy | PVC is independent of the Pod lifecycle |
+| 2+ replicas per tier | One crash takes the whole tier down | Second replica keeps serving |
+| topologySpreadConstraints | Both replicas could land on the same host | Scheduler forces spread across nodes |
+| Migration as a Job | Entrypoint-based migrations race at 2+ replicas | Job runs once, completes, then Deployments start |
+| RollingUpdate maxUnavailable:0 | Restart causes a visible gap | New Pod must be Ready before old one terminates |
+| HPA | Manual scaling under load | CPU-based autoscaling of backend replicas |
+| Multi-node cluster | Node failure = total outage | Pods reschedule onto healthy nodes |
+| GitOps (Argo CD) | Manual kubectl apply drifts from source | Git is the source of truth; cluster self-heals to match it |
 
-## 5. Choices & trade-offs
-- Raw YAML vs Helm vs kustomize — why: …
-- ingress-nginx vs k3s Traefik — why: …
-- CNI / NetworkPolicy enforcement — what and why: …
-- Secrets approach (out-of-band vs Sealed/External Secrets) — why: …
+## Security
+
+- SSH (22): restricted to operator's current IP only
+- HTTP/HTTPS (80/443): open to the world (required for app + ACME challenge)
+- Kubernetes API (6443): not exposed to 0.0.0.0/0 in the security group; reached only from operator's IP for admin access
+- NetworkPolicy: default-deny in `taskapp` namespace; Postgres reachable only from backend; backend reachable only from frontend/ingress
+- TLS: Let's Encrypt certificate via cert-manager HTTP01 challenge, auto-renewed
+- No root SSH login, password authentication disabled (Ansible base-hardening role)
+- Secrets (`taskapp-secrets`) never committed to git; `.gitignore` covers `manifests/secret/`, `*.tfstate`, `kubeconfig`, `*.pem`
