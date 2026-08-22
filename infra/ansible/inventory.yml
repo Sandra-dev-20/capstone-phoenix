@@ -1,0 +1,12 @@
+all:
+  children:
+    control_plane:
+      hosts:
+        k3s-server:
+          ansible_host: 13.62.228.69
+    workers:
+      hosts:
+        k3s-worker-1:
+          ansible_host: 13.49.77.6
+        k3s-worker-2:
+          ansible_host: 51.21.152.188

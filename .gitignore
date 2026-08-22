@@ -25,3 +25,4 @@ node-token
 
 # General
 .DS_Store
+terraform.tfvars

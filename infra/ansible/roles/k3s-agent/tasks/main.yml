@@ -1,0 +1,19 @@
+---
+- name: Check if k3s agent is already installed
+  stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Install k3s agent
+  shell: |
+    curl -sfL https://get.k3s.io | sh -s - agent \
+      --server https://{{ hostvars['k3s-server']['ansible_host'] }}:6443 \
+      --token {{ hostvars['k3s-server']['k3s_token'] }} \
+      --node-name {{ inventory_hostname }}
+  when: not k3s_binary.stat.exists
+
+- name: Ensure k3s-agent service is running
+  service:
+    name: k3s-agent
+    state: started
+    enabled: yes
